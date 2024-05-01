@@ -30,6 +30,9 @@ class OcrFilesManager:
     def get_result_doc_name(self):
         return os.path.join(self.dir_path, str('ocr-doc') + self.gmt + '.docx')
 
+    def get_result_short_name(self):
+        return str('ocr-doc') + self.gmt + '.docx'
+
     def get_secondary_images(self):
         return self._get_primary_files()
 

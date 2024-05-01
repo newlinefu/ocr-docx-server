@@ -1,13 +1,20 @@
-from typing import Dict
+import os
+from io import BytesIO
+from typing import Dict, List
+
+import boto3
 import numpy as np
 import pytesseract
 from django.core.files.uploadedfile import UploadedFile
 from docx import Document
 from pdf2image import convert_from_bytes
 from PIL import Image
+from pytesseract import Output
 
-from ocr_doc_transformer.classes.document_part import CreatedDocumentPart
+from ocr_doc_transformer.classes.document_elements.table.table import Table
 from ocr_doc_transformer.classes.ocr_files_manager import OcrFilesManager
+from ocr_doc_transformer.classes.page_structure import PageStructure
+from django.conf import settings
 
 
 class OcrCreator:
@@ -51,27 +58,35 @@ class OcrCreator:
 
     def create_document_object(self):
         document = Document()
-        document_structure = self.get_doc_structure_from_files()
+        document_structure: List[PageStructure] = self.get_doc_structure_from_files()
         for part in document_structure:
-            if part.part_type == "paragraph":
-                document.add_paragraph(part.content)
-            elif part.part_type == "pageBreak":
-                document.add_page_break()
+            part.add_to(document)
 
         return document
 
     def create_document(self):
         document = self.create_document_object()
-        result_doc_name = self.files_manager.get_result_doc_name()
+        result_doc_name = self.files_manager.get_result_short_name()
         result_doc_url = self.files_manager.get_result_file_url()
-        document.save(result_doc_name)
-        return result_doc_url
+        session = boto3.session.Session()
+        s3 = session.client(
+            service_name='s3',
+            endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+        with BytesIO() as file_obj:
+            document.save(file_obj)
+            file_obj.seek(0)
+            s3.upload_fileobj(file_obj, os.environ.get('S3_BUCKET_NAME'), result_doc_name)
+
+        return settings.AWS_S3_ENDPOINT_URL + '/' + os.environ.get('S3_BUCKET_NAME') + '/' + result_doc_name
 
     @staticmethod
     def get_doc_structure_from_image(file: UploadedFile):
         img = np.array(Image.open(file))
-        text = pytesseract.image_to_string(img, lang='rus')
-        return [
-            CreatedDocumentPart("paragraph", text),
-            CreatedDocumentPart("pageBreak")
-        ]
+        tables = Table.get_tables_from_image(file)
+        image_data = pytesseract.image_to_data(img, lang="eng+rus", output_type=Output.DICT)
+        page_structure = PageStructure(image_data, tables)
+
+        return [page_structure]

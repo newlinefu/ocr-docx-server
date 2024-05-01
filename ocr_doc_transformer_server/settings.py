@@ -9,8 +9,10 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-
+import os
 from pathlib import Path
+
+from django.core.files.storage import storages
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'ocr_doc_transformer.apps.OcrDocTransformerConfig',
     'rest_framework',
-    'corsheaders'
+    'corsheaders',
+    'storages'
 ]
 
 MIDDLEWARE = [
@@ -134,3 +137,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+# ----Yandex s3----
+DEFAULT_FILE_STORAGE = 'django.files.storage.FileSystemStorage'
+
+AWS_ACCESS_KEY_ID = os.environ.get('S3_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('S3_SECRET_ACCESS_KEY')
+AWS_S3_ENDPOINT_URL = 'https://storage.yandexcloud.net'
+AWS_S3_REGION_NAME = 'storage'
+AWS_QUERYSTRING_AUTH = False

@@ -3,6 +3,8 @@
 import os
 import sys
 
+import boto3.session
+
 
 def main():
     """Run administrative tasks."""
